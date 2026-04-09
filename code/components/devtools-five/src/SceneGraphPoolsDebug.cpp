@@ -265,7 +265,6 @@ static int16_t (*g_origComputeSceneNodeIndex)(const void* sceneNode);
 static int16_t ComputeSceneNodeIndex(const void* sceneNode)
 {
 	auto result = g_origComputeSceneNodeIndex(sceneNode);
-	trace("Scene Node Index: %d\n", result);
 	return result;
 }
 
