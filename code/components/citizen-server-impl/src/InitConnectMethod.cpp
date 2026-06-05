@@ -1040,7 +1040,7 @@ static InitFunction initFunction([]()
 				auto weakEarlyReject = std::weak_ptr(earlyReject);
 				auto weakNoReason = std::weak_ptr(noReason);
 
-				(*deferrals)->SetRejectCallback([deferrals, cbRef, clientWeak, weakEarlyReject, weakNoReason](const std::string& message, const std::string& resourceName)
+				(*deferrals)->SetRejectCallback([deferrals, cbRef, clientWeak, weakEarlyReject, weakNoReason, eventManager](const std::string& message, const std::string& resourceName)
 				{
 					auto earlyReject = weakEarlyReject.lock();
 					auto noReason = weakNoReason.lock();
@@ -1069,6 +1069,15 @@ static InitFunction initFunction([]()
 							{ "license", license },
 							{ "resource", resourceName },
 							{ "reason", message }
+						);
+
+						// This fires when a resource or deferral explicitly rejects the player.
+						eventManager->TriggerEvent2(
+							"playerConnectionDenied",
+							{ fmt::sprintf("internal-net:%d", newLockedClient->GetNetId()) },
+							newLockedClient->GetName(),
+							message,
+							resourceName
 						);
 
 						auto ref1 = *cbRef;
@@ -1170,6 +1179,31 @@ static InitFunction initFunction([]()
 					if (!shouldAllow)
 					{
 						*deferrals = {};
+
+						/*NETEV playerConnectionDenied SERVER
+						/#*
+						 * A server-side event triggered when a player's connection is denied after
+						 * `playerConnecting` has already been fired. This covers instant cancellations
+						 * (event canceled synchronously) and deferred rejections via `deferrals.done`
+						 * or resource `SetRejectCallback`. It is NOT triggered for pre-`playerConnecting`
+						 * failures (e.g. invalid ticket, wrong game build).
+						 *
+						 * @param playerName - The display name of the player who was denied.
+						 * @param reason - The reason string sent to the client.
+						 * @param resourceName - The resource that caused the denial, or an empty string
+						 *                       if the event itself was canceled.
+						 * @param source - The player's *temporary* NetID, **not a real argument, use [FromSource] or source**.
+						 #/
+						declare function playerConnectionDenied(playerName: string, reason: string, resourceName: string): void;
+						*/
+						eventManager->TriggerEvent2(
+							"playerConnectionDenied",
+							{ fmt::sprintf("internal-net:%d", lockedClient->GetNetId()) },
+							lockedClient->GetName(),
+							**noReason,
+							std::string{}  // no specific resource; the event itself was canceled
+						);
+
 						sendError(**noReason);
 						return;
 					}
