@@ -20,6 +20,7 @@ namespace CitizenFX.Core
             "playerConnecting",
             "playerDropped",
             "playerJoining",
+			"playerConnectionDenied",
         };
 #endif
 
